@@ -3,11 +3,15 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
+use App\Helpers\ApiResponseHelper;
+use App\Http\Resources\TransactionResource;
+use App\Http\Resources\UserResource;
 use App\Models\Transactions;
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class TransactionController extends Controller
 {
@@ -16,12 +20,16 @@ class TransactionController extends Controller
      */
     public function recharge(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
+            'amount' => 'required|numeric|min:1000|max:5000000',
             'description' => 'nullable|string|max:255',
         ]);
 
-        $user = Auth::user();
+        if ($validator->fails()) {
+            return ApiResponseHelper::validationError($validator->errors());
+        }
 
+        $user = Auth::user();
         $amount = $request->amount;
 
         try {
@@ -29,56 +37,60 @@ class TransactionController extends Controller
 
             $transaction = Transactions::create([
                 'amount' => $amount,
-                // 'sender_id' => $user->id,
                 'receiver_id' => $user->id,
                 'type' => 'recharge',
                 'status' => 'completed',
                 'description' => $request->description ?? 'Account recharge',
             ]);
+
             $oldBalance = $user->wallet_balance;
             $user->incrementBalance($amount);
 
             DB::commit();
+
             $transaction->load(['sender', 'receiver']);
-            return response()->json([
-                'success' => true,
-                'message' => 'Recharge successful',
-                'transaction' => $transaction,
+
+            return ApiResponseHelper::success([
+                'transaction' => new TransactionResource($transaction),
+                'user' => new UserResource($user->fresh()),
                 'old_balance' => (float) $oldBalance,
-                'new_balance' => $user->wallet_balance,
+                'new_balance' => (float) $user->wallet_balance,
                 'moved_amount' => (float) $amount,
-            ], 200);
+            ], 'Recharge successful');
         } catch (\Exception $e) {
             DB::rollBack();
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Recharge failed',
-                'error' => $e->getMessage(),
-            ], 500);
+            return ApiResponseHelper::serverError('Recharge failed: ' . $e->getMessage());
         }
     }
 
-    // send money
+    /**
+     * Send money to another user
+     */
     public function sendMoney(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'recipient_email' => 'required|email',
             'amount' => 'required|numeric|min:1000|max:5000000',
             'description' => 'nullable|string|max:255',
         ]);
+
+        if ($validator->fails()) {
+            return ApiResponseHelper::validationError($validator->errors());
+        }
+
         $user = Auth::user();
         $amount = $request->amount;
+
         try {
             DB::beginTransaction();
 
             $receiver = User::where('email', $request->recipient_email)->first();
             if (!$receiver) {
-                return response()->json(['success' => false, 'message' => 'Receiver not found'], 404);
+                return ApiResponseHelper::notFound('Recipient not found');
             }
 
             if (!$user->hasSufficientBalance($amount)) {
-                return response()->json(['success' => false, 'message' => 'Insufficient balance'], 400);
+                return ApiResponseHelper::error('Insufficient balance', null, 400);
             }
 
             $transaction = Transactions::create([
@@ -89,46 +101,73 @@ class TransactionController extends Controller
                 'status' => 'completed',
                 'description' => $request->description ?? 'Money transfer',
             ]);
-            $old_balance = $user->wallet_balance;
+
+            $oldBalance = $user->wallet_balance;
             $user->deductBalance($amount);
             $receiver->incrementBalance($amount);
 
             DB::commit();
+
             $transaction->load(['sender', 'receiver']);
-            return response()->json([
-                'success' => true,
-                'message' => 'Money sent successfully',
-                'transaction' => $transaction,
-                'old_balance' => (float)  $old_balance,
+
+            return ApiResponseHelper::success([
+                'transaction' => new TransactionResource($transaction),
+                'user' => new UserResource($user->fresh()),
+                'old_balance' => (float) $oldBalance,
                 'new_balance' => (float) $user->wallet_balance,
                 'moved_amount' => (float) $amount,
-            ], 200);
+            ], 'Money sent successfully');
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json([
-                'success' => false,
-                'message' => 'Transaction failed',
-                'error' => $e->getMessage(),
-            ], 500);
+            return ApiResponseHelper::serverError('Transaction failed: ' . $e->getMessage());
         }
     }
-    // receivedTransactions
+
+    /**
+     * Get received transactions
+     */
     public function receivedTransactions()
     {
         $user = Auth::user();
-        $transactions = $user->receivedTransactions()->with(['sender', 'receiver'])->get();
-        return response()->json([
-            'success' => true,
-            'transactions' => $transactions,
-        ], 200);
+        $transactions = $user->receivedTransactions()->with(['sender', 'receiver'])->latest()->get();
+
+        return ApiResponseHelper::success([
+            'transactions' => TransactionResource::collection($transactions),
+            'total_count' => $transactions->count(),
+        ], 'Received transactions retrieved successfully');
     }
+
+    /**
+     * Get sent transactions
+     */
     public function sentTransactions()
     {
         $user = Auth::user();
-        $transactions = $user->sentTransactions()->with(['sender', 'receiver'])->get();
-        return response()->json([
-            'success' => true,
-            'transactions' => $transactions,
-        ], 200);
+        $transactions = $user->sentTransactions()->with(['sender', 'receiver'])->latest()->get();
+
+        return ApiResponseHelper::success([
+            'transactions' => TransactionResource::collection($transactions),
+            'total_count' => $transactions->count(),
+        ], 'Sent transactions retrieved successfully');
+    }
+
+    /**
+     * Get all transactions (sent and received)
+     */
+    public function allTransactions()
+    {
+        $user = Auth::user();
+
+        $sentTransactions = $user->sentTransactions()->with(['sender', 'receiver']);
+        $receivedTransactions = $user->receivedTransactions()->with(['sender', 'receiver']);
+
+        $allTransactions = $sentTransactions->union($receivedTransactions)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
+        return ApiResponseHelper::success([
+            'transactions' => TransactionResource::collection($allTransactions),
+            'total_count' => $allTransactions->count(),
+        ], 'All transactions retrieved successfully');
     }
 }

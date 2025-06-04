@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Helpers\ApiResponseHelper;
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use Illuminate\Http\Request;
 
 class ApiController extends Controller
 {
-    // health
+    /**
+     * API Health Check
+     */
     public function index(Request $request)
     {
-        return response()->json([
-            'status' => 'ok',
-            'message' => 'API is running',
-            'timestamp' => now()->toIso8601String(),
-        ]);
+        return ApiResponseHelper::success([
+            'status' => 'healthy',
+            'version' => '1.0.0',
+            'environment' => app()->environment(),
+        ], 'API is running successfully');
     }
-   
-
 }
