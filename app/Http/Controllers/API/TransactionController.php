@@ -50,7 +50,7 @@ class TransactionController extends Controller
             $transaction->load(['sender', 'receiver']);
 
             return ApiResponseHelper::success([
-                'transaction' => new TransactionResource($transaction),
+                'transactions' => new TransactionResource($transaction),
                 'user' => new UserResource($user->fresh()),
                 'old_balance' => (float) $oldBalance,
                 'new_balance' => (float) $user->wallet_balance,
@@ -109,7 +109,7 @@ class TransactionController extends Controller
             $transaction->load(['sender', 'receiver']);
 
             return ApiResponseHelper::success([
-                'transaction' => new TransactionResource($transaction),
+                'transactions' => new TransactionResource($transaction),
                 'user' => new UserResource($user->fresh()),
                 'old_balance' => (float) $oldBalance,
                 'new_balance' => (float) $user->wallet_balance,
