@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
+use App\Events\TransactionProcessed;
 use App\Http\Controllers\Controller;
 use App\Helpers\ApiResponseHelper;
 use App\Http\Resources\TransactionResource;
@@ -43,7 +44,7 @@ class TransactionController extends Controller
 
             $oldBalance = $user->wallet_balance;
             $user->incrementBalance($amount);
-
+            event(new TransactionProcessed($transaction, $user, 'recharge'));
             DB::commit();
 
             $transaction->load(['sender', 'receiver']);
@@ -100,7 +101,9 @@ class TransactionController extends Controller
             $oldBalance = $user->wallet_balance;
             $user->deductBalance($amount);
             $receiver->incrementBalance($amount);
-
+            // EVENT
+            event(new TransactionProcessed($transaction, $user, 'sent'));
+            event(new TransactionProcessed($transaction, $receiver, 'received'));
             DB::commit();
 
             $transaction->load(['sender', 'receiver']);
