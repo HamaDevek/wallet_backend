@@ -81,6 +81,10 @@ class TransactionController extends Controller
             DB::beginTransaction();
 
             $receiver = User::where('email', $request->recipient_email)->first();
+            //  email must not equal to sender email
+            if ($receiver && $receiver->email === $user->email) {
+                return ApiResponseHelper::error('You cannot send money to yourself', null, 400);
+            }
             if (!$receiver) {
                 return ApiResponseHelper::notFound('Recipient not found');
             }
