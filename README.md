@@ -372,7 +372,7 @@ MAIL_MAILER=log
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-### Code Style
+###  Code Style
 
 This project uses Laravel Pint for code formatting:
 
@@ -393,4 +393,4 @@ composer run format
 
 ---
 
-Built with ❤️ using Laravel
+Built with ❤️ using Laravel 
