@@ -9,5 +9,6 @@ Route::group(['prefix' => 'transactions'], function () {
         Route::post('/send-money', [TransactionController::class, 'sendMoney']);
         Route::get('/received-transactions', [TransactionController::class, 'receivedTransactions']);
         Route::get('/sent-transactions', [TransactionController::class, 'sentTransactions']);
+        Route::get('/all-transactions', [TransactionController::class, 'allTransactions']);
     });
 });

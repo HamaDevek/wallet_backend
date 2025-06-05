@@ -15,9 +15,7 @@ use Illuminate\Support\Facades\Validator;
 
 class TransactionController extends Controller
 {
-    /**
-     * Self recharge - user adds money to their own account
-     */
+
     public function recharge(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -63,9 +61,6 @@ class TransactionController extends Controller
         }
     }
 
-    /**
-     * Send money to another user
-     */
     public function sendMoney(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -123,9 +118,7 @@ class TransactionController extends Controller
         }
     }
 
-    /**
-     * Get received transactions
-     */
+
     public function receivedTransactions()
     {
         $user = Auth::user();
@@ -137,9 +130,6 @@ class TransactionController extends Controller
         ], 'Received transactions retrieved successfully');
     }
 
-    /**
-     * Get sent transactions
-     */
     public function sentTransactions()
     {
         $user = Auth::user();
@@ -151,9 +141,7 @@ class TransactionController extends Controller
         ], 'Sent transactions retrieved successfully');
     }
 
-    /**
-     * Get all transactions (sent and received)
-     */
+
     public function allTransactions()
     {
         $user = Auth::user();

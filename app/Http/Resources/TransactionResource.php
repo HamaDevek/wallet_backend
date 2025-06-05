@@ -29,7 +29,7 @@ class TransactionResource extends JsonResource
             'sender_id' => $this->sender_id,
             'receiver_id' => $this->receiver_id,
             'created_at' => $this->created_at->toISOString(),
-            // 'updated_at' => $this->updated_at->toISOString(),
+            // 'updated_at' => $this->updated_at->toISOString(),a
         ];
     }
 
